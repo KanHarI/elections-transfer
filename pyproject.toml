@@ -1,0 +1,28 @@
+[project]
+name = "elections-transfer"
+version = "0.1.0"
+description = "Voter-transfer estimates between Israeli Knesset elections (2022 → 2026) from ballot-box results, via a VAE over polling-place clusters"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.5.4",
+    "pandas>=3.1.0",
+    "pyarrow>=26.0.0",
+    "requests>=2.34.2",
+    "scipy>=1.18.1",
+    "torch>=2.15.0",
+]
+
+[project.scripts]
+elections-transfer = "elections_transfer.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/elections_transfer"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
+]

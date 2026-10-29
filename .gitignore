@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+results/fits.pkl
+results/*.log
+.DS_Store

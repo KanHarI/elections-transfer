@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voter Transfers 2022→2026</title>
+  <meta name="description" content="Estimated voter transfers between Israeli Knesset lists, 2022 → 2026, from ballot-box results.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="page-head">
+    <div>
+      <h1>Where did the voters go?</h1>
+      <p class="lede">Estimated movement of voters between Knesset lists from the 2022 election to the 2026 election, inferred from ballot-box results.</p>
+    </div>
+    <p id="status" class="status" role="status"></p>
+  </header>
+
+  <section class="filters" aria-label="Filters">
+    <label class="field">
+      <span>Model</span>
+      <select id="model"></select>
+    </label>
+    <label class="field grow">
+      <span>Area</span>
+      <input id="area" list="area-list" placeholder="Whole country — type a locality…" autocomplete="off" dir="auto">
+      <datalist id="area-list"></datalist>
+    </label>
+    <fieldset class="toggles">
+      <legend>Show</legend>
+      <label><input type="checkbox" id="show-abstain" checked> Didn't vote</label>
+      <label><input type="checkbox" id="show-roll" checked> New voters &amp; leavers</label>
+      <label><input type="checkbox" id="show-minor" checked> Invalid &amp; other lists</label>
+    </fieldset>
+  </section>
+
+  <main>
+    <section class="card">
+      <div class="card-head">
+        <h2 id="chart-title">Whole country</h2>
+        <p id="chart-sub" class="muted"></p>
+      </div>
+      <p class="hint muted">Hover a list to see where its voters went; click to pin it. Width = number of people.</p>
+      <div class="chart-scroll">
+        <svg id="sankey" role="img" aria-labelledby="chart-title"></svg>
+      </div>
+      <p id="model-desc" class="muted small"></p>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Transfer table</h2>
+        <div class="seg" role="radiogroup" aria-label="Table values">
+          <button type="button" data-mode="row" aria-pressed="true">% of 2022 list</button>
+          <button type="button" data-mode="col" aria-pressed="false">% of 2026 list</button>
+          <button type="button" data-mode="abs" aria-pressed="false">People</button>
+        </div>
+      </div>
+      <p id="table-caption" class="muted small"></p>
+      <div class="table-scroll">
+        <table id="matrix"></table>
+      </div>
+    </section>
+
+    <section class="card prose" id="method">
+      <h2>How this is estimated</h2>
+      <p>Votes are secret, so nobody knows how any individual moved. What is known is each ballot box's result in both elections. Boxes are grouped into <strong>clusters</strong> that cover the same voters in 2022 and 2026: polling places (the CEC's “ריכוז”) matched by their id, then by shared box numbers; places that can't be matched are pooled per locality, or per regional committee. Double-envelope ballots (soldiers, diplomats, hospitals, prisons) form one cluster of their own.</p>
+      <p>Each cluster is a closed population. On the 2022 side everyone either voted for a list, cast an invalid ballot, didn't vote, or <em>wasn't yet on the roll</em> (turned 18 or immigrated since). On the 2026 side the same people voted, didn't vote, or <em>left the roll</em> (mostly deceased). Lists under 0.2% of the national vote are grouped as “Other”.</p>
+      <p>A model then finds flows that reproduce every cluster's results in both elections at once. The models differ in what they assume about voters inside a cluster:</p>
+      <ul id="model-list"></ul>
+      <h3>Does it recover known flows?</h3>
+      <p>We planted known flows in synthetic data with the same clusters and sizes, aggregated them to box level, and asked each model to recover them. Lower is better: the share of a 2022 list's voters sent to the wrong 2026 destination, averaged over lists.</p>
+      <div class="table-scroll"><table id="synthetic" class="plain"></table></div>
+      <p class="muted small" id="synthetic-note"></p>
+      <h3>Caveats</h3>
+      <ul>
+        <li>This is ecological inference: aggregate results can't pin down individual moves, so every number here rests on the model's assumptions. Treat flows under a few thousand people as noise.</li>
+        <li>People who moved home between elections appear as “left the roll” in one cluster and “new voters” in another.</li>
+        <li>Double-envelope voters are a different population in each election (most 2022 soldiers have been discharged). They also stay on their home box's roll, so their numbers are removed from home-box abstainers, in proportion to registered voters.</li>
+        <li>New voters vs. leavers is split with a national death rate (3.1% over four years); only their difference is observed.</li>
+      </ul>
+      <h3>Data</h3>
+      <ul id="sources"></ul>
+    </section>
+  </main>
+
+  <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
