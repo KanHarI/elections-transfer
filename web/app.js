@@ -11,7 +11,7 @@
     showRoll: true,
     showMinor: true,
     tableMode: "row",
-    group: "lists",       // "lists" | "blocks"
+    group: "blocks",      // "lists" | "blocks"; the page opens on blocks
     pinned: null,         // node key
   };
 
