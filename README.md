@@ -104,7 +104,7 @@ Static page (D3 + d3-sankey) reading `web/data/results.json` and
 `web/data/areas.json`:
 
 - national or per-locality Sankey, VAE or constant matrix;
-- **Lists / Blocks**: blocks (Bibi, Eisenkot, Arab, Charedim) are a display
+- **Lists / Blocks**: blocks (Bibi, Change, Arab, Charedim) are a display
   grouping defined in `web/app.js`; lists not in a block are "Other lists";
 - a **cross-block moves** panel breaking each block-to-block move (Other lists
   counted as a block) into its list-to-list flows;

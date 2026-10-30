@@ -50,7 +50,7 @@
   const BLOCKS = {
     bibi: { en: "Bibi", he: "גוש נתניהו", color: "var(--block-bibi)",
       25: ["מחל", "ט", "ב"], 26: ["מחל", "ב", "ט"] },
-    left: { en: "Eisenkot", he: "גוש איזנקוט", color: "var(--block-left)",
+    left: { en: "Change", he: "גוש השינוי", color: "var(--block-left)",
       25: ["פה", "כן", "ל", "אמת", "מרצ", "יז"], 26: ["דרך", "רק", "אמת", "ל"] },
     arab: { en: "Arab", he: "ערבים", color: "var(--block-arab)",
       25: ["עם", "ום", "ד"], 26: ["ודם", "עם"] },
