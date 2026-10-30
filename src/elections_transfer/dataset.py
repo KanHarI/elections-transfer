@@ -4,13 +4,14 @@ Every cluster gets a closed population: each person is in exactly one 2022
 category and one 2026 category, so both rows of counts sum to the same N.
 
 2022 categories: lists ≥ threshold, OTHER, INVALID, ABSTAIN, NEW
-2026 categories: lists ≥ threshold, OTHER, INVALID, ABSTAIN, LEFT
+2026 categories: lists ≥ threshold, OTHER, INVALID, ABSTAIN
 
-NEW are people on the 2026 roll but not the 2022 one (turned 18, immigrated);
-LEFT are people on the 2022 roll but not the 2026 one (mostly deceased). Only
-their difference is observed per cluster, so LEFT is set from a national death
-rate and NEW absorbs the rest; a cluster that shrank more than that sends the
-excess to LEFT.
+Only the vote files are used. They give each cluster's registered voters in both
+elections, so only the net change is known: people who turned 18 (or arrived)
+minus people who died (or left). A cluster that grew gets that growth as NEW, "new
+voters (net)". A cluster that shrank has more people in 2022 than in 2026; the
+difference is removed evenly from all its 2022 categories. People who died are
+therefore treated as replaced by new voters.
 
 Double-envelope voters (soldiers, diplomats, hospital patients, prisoners...) are
 counted in their own cluster, but they also stay on their home box's roll, where
@@ -26,9 +27,6 @@ import pandas as pd
 
 from . import clusters, data
 from .parties import SMALL_PARTY_THRESHOLD
-
-# ~52k deaths a year, Nov 2022 → Oct 2026, over ~6.8M registered voters.
-DEATH_RATE = 0.031
 
 ENVELOPE_CLUSTER = "ENVELOPES"
 
@@ -110,16 +108,15 @@ def build() -> Dataset:
     pop22 = _close_envelopes(k22, env22.voters.sum())
     pop26 = _close_envelopes(k26, env26.voters.sum())
 
-    left = DEATH_RATE * pop22
-    new = pop26 - pop22 + left
-    shrink = new < 0
-    left[shrink] -= new[shrink]
-    new[shrink] = 0
-    k22["NEW"], k26["LEFT"] = new, left
+    growth = pop26 - pop22
+    k22["NEW"] = growth.clip(lower=0)
 
     cats22 = [f"P:{p}" for p in keep22] + ["OTHER", "INVALID", "ABSTAIN", "NEW"]
-    cats26 = [f"P:{p}" for p in keep26] + ["OTHER", "INVALID", "ABSTAIN", "LEFT"]
+    cats26 = [f"P:{p}" for p in keep26] + ["OTHER", "INVALID", "ABSTAIN"]
     x22, x26 = k22[cats22].to_numpy(float), k26[cats26].to_numpy(float)
+    # Shrinking clusters: remove the difference evenly from every 2022 category.
+    shrink = (growth < 0).to_numpy()
+    x22[shrink] *= (pop26[shrink] / pop22[shrink]).to_numpy()[:, None]
     assert np.allclose(x22.sum(1), x26.sum(1), rtol=1e-9, atol=1e-6), "cluster populations don't close"
     assert (x22 >= -1e-9).all() and (x26 >= -1e-9).all()
 
@@ -142,9 +139,9 @@ def build() -> Dataset:
         "envelope_voters": {"2022": int(env22.voters.sum()), "2026": int(env26.voters.sum())},
         "registered": {"2022": int(b22.bzb.sum()), "2026": int(b26.bzb.sum())},
         "voters": {"2022": int(b22.voters.sum()), "2026": int(b26.voters.sum())},
-        "new_voters_est": float(new.sum()),
-        "left_roll_est": float(left.sum()),
-        "death_rate": DEATH_RATE,
+        "new_voters_net": float(growth.clip(lower=0).sum()),
+        "shrink_removed": float(-growth.clip(upper=0).sum()),
+        "shrinking_clusters": int(shrink.sum()),
         "small_party_threshold": SMALL_PARTY_THRESHOLD,
     }
     return Dataset(cats22, cats26, x22, x26, meta, summary)

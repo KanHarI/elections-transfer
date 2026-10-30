@@ -108,13 +108,12 @@ K26: dict[str, Party] = {
 
 PARTIES = {25: K25, 26: K26}
 
-# Non-party categories. "new" exists only on the 2022 side, "left" only on 2026.
+# Non-party categories. NEW exists only on the 2022 side.
 SPECIAL: dict[str, Party] = {
     "OTHER": Party("Other lists (<0.2%)", "רשימות אחרות", "#b9bec5"),
     "INVALID": Party("Invalid ballot", "קול פסול", "#cfd3d8"),
     "ABSTAIN": Party("Didn't vote", "לא הצביעו", "#8d939b"),
-    "NEW": Party("Not yet eligible (new voters)", "בוחרים חדשים", "#c7d6df"),
-    "LEFT": Party("Left the roll (deceased)", "יצאו מהפנקס", "#5f6b75"),
+    "NEW": Party("New voters (net)", "בוחרים חדשים (נטו)", "#c7d6df"),
 }
 
 

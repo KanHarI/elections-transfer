@@ -80,12 +80,15 @@ def table(ds: Dataset, flows: np.ndarray) -> str:
 
 VAE = models.VAEConfig(head="transfer", latent=4, beta=1.0, steps=3000, eval_samples=512, device="cpu")
 VAE_TWO = models.VAEConfig(head="two", latent=8, beta=1.0, sharp=0.3, steps=3000, eval_samples=512, device="cpu")
+VAE_SPLIT = models.VAEConfig(head="split", latent=20, beta=0.1, t_latent=4, t_beta=0.03, steps=3000, eval_samples=512,
+                             device="cpu")
 
 FITTERS = {
     "independent": models.independent,
     "constant": models.constant,
     VAE.name: lambda ds: models.cloud_vae(ds, VAE),
     VAE_TWO.name: lambda ds: models.cloud_vae(ds, VAE_TWO),
+    VAE_SPLIT.name: lambda ds: models.cloud_vae(ds, VAE_SPLIT),
 }
 
 
@@ -106,7 +109,7 @@ RECOVERY_CASES = [
 
 
 @pytest.mark.parametrize("case", RECOVERY_CASES)
-@pytest.mark.parametrize("model", [VAE.name, VAE_TWO.name])
+@pytest.mark.parametrize("model", [VAE.name, VAE_TWO.name, VAE_SPLIT.name])
 def test_vae_recovers_planted_flows(case, model):
     ds, truth = make(case)
     result = FITTERS[model](ds)

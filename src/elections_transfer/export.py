@@ -19,20 +19,14 @@ MODEL_TEXT = {
     "vae": (
         "VAE (cloud of voters)",
         "Each polling-place cluster is a Gaussian cloud of voters in a latent space, encoded from its 2022 "
-        "results only. A shared decoder gives every sampled voter a 2022 vote and a 2026 transfer row; the "
-        "sampled voters must reproduce the cluster's results in both elections. Transfers can differ "
-        "between clusters, but a KL penalty keeps them close to a shared pattern.",
+        "results only, with a KL penalty toward N(0, I). {decoder} The sampled voters must reproduce the "
+        "cluster's results in both elections.",
     ),
     "constant": (
         "Constant transfer matrix",
         "One transfer matrix for the whole country: every cluster's 2026 result is its 2022 result times "
         "the same matrix (Goodman ecological regression). Simple and robust, but it assumes a list's voters "
         "move the same way everywhere.",
-    ),
-    "independent": (
-        "No within-cluster loyalty",
-        "Assumes that inside each cluster a voter's 2026 choice is unrelated to their 2022 choice. Not a "
-        "realistic estimate: a floor on loyalty, shown for reference.",
     ),
 }
 
@@ -45,6 +39,16 @@ def synthetic_results() -> pd.DataFrame | None:
     return pd.concat(frames).drop_duplicates(["regime", "model"], keep="last").reset_index(drop=True)
 
 
+VAE_DECODER_TEXT = {
+    "two": "A shared decoder gives every sampled voter a 2022 vote and a 2026 vote.",
+    "transfer": "A shared decoder gives every sampled voter a 2022 vote and a 2026 transfer row, so transfers "
+                "can differ between clusters.",
+    "split": "The code has two parts. A detailed description code reconstructs the cluster's 2022 result. A "
+             "small, heavily penalized movement code is the only thing allowed to shift the cluster's transfer "
+             "matrix away from the national one, so only patterns shared by many clusters survive.",
+}
+
+
 def chosen_config(device: str = "cpu") -> models.VAEConfig:
     """The VAE configuration with the best synthetic recovery (party transfer rows)."""
     df = synthetic_results()
@@ -53,9 +57,16 @@ def chosen_config(device: str = "cpu") -> models.VAEConfig:
     vae = df[df.model.str.startswith("vae_")].groupby("model").party_row_tv.mean().sort_values()
     if vae.empty:
         return models.VAEConfig(device=device)
-    head, d, b, *rest = vae.index[0].removeprefix("vae_").split("_")
-    sharp = float(rest[0][1:]) if rest else 0.0
-    return models.VAEConfig(head=head, latent=int(d[1:]), beta=float(b[1:]), sharp=sharp, device=device)
+    return models.VAEConfig.from_name(vae.index[0], device=device)
+
+
+def _synthetic_rows(synth: pd.DataFrame | None) -> list[dict]:
+    """Rows for the comparison table: the constant matrix and VAE runs tested on every regime."""
+    if synth is None:
+        return []
+    shown = synth[synth.model != "independent"]
+    complete = shown.groupby("model").regime.nunique() == shown.regime.nunique()
+    return shown[shown.model.isin(complete[complete].index)].to_dict(orient="records")
 
 
 def _nodes(ds: Dataset, knesset: int, cats: list[str], totals: np.ndarray) -> list[dict]:
@@ -81,7 +92,7 @@ def _areas(ds: Dataset, fits: dict[str, models.Result]) -> list[dict]:
     areas.append({
         "id": "envelopes", "name": "Double envelopes (soldiers, diplomats, hospitals…)",
         "kind": "envelope", "population": round(float(n[env].sum())), "coverage": 1.0, "clusters": 1,
-        "flows": {k: _matrix(r.flows[env].sum(0)) for k, r in fits.items()},
+        "flows": {k: _matrix(r.flows[env].sum(0)) for k, r in fits.items() if k in MODEL_TEXT},
     })
     # Committee residuals span several settlements; a settlement's view covers only
     # clusters that lie entirely inside it.
@@ -94,7 +105,7 @@ def _areas(ds: Dataset, fits: dict[str, models.Result]) -> list[dict]:
             "id": f"s{code}", "name": grp.settlement_name.iloc[0],
             "kind": "settlement", "population": round(pop), "clusters": int(len(idx)),
             "coverage": round(pop / settlement_total, 4) if settlement_total else 1.0,
-            "flows": {k: _matrix(r.flows[idx].sum(0)) for k, r in fits.items()},
+            "flows": {k: _matrix(r.flows[idx].sum(0)) for k, r in fits.items() if k in MODEL_TEXT},
         })
     return areas
 
@@ -118,11 +129,12 @@ def write():
             default = "constant"
 
     model_entries = []
-    for key in ("vae", "constant", "independent"):
+    for key in ("vae", "constant"):
         r = fits[key]
         title, desc = MODEL_TEXT[key]
         info = {}
         if key == "vae":
+            desc = desc.format(decoder=VAE_DECODER_TEXT[r.info["config"]["head"]])
             info = {"config": {k: v for k, v in r.info["config"].items() if k != "device"}, "fit": r.info["fit"]}
         model_entries.append({"id": key, "label": title, "description": desc, "national": _matrix(r.national), "info": info})
 
@@ -142,7 +154,7 @@ def write():
         "models": model_entries,
         "default_model": default,
         "chosen_vae": chosen,
-        "synthetic": synth.to_dict(orient="records") if synth is not None else [],
+        "synthetic": _synthetic_rows(synth),
     }
     WEB_DATA.mkdir(parents=True, exist_ok=True)
     (WEB_DATA / "results.json").write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=float))

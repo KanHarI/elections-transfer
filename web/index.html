@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Voter Transfers 2022→2026</title>
   <meta name="description" content="Estimated voter transfers between Israeli Knesset lists, 2022 → 2026, from ballot-box results.">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <header class="page-head">
@@ -21,6 +21,13 @@
       <span>Model</span>
       <select id="model"></select>
     </label>
+    <div class="field">
+      <span id="group-label">Group</span>
+      <div class="seg" id="group" role="radiogroup" aria-labelledby="group-label">
+        <button type="button" data-group="lists" aria-pressed="true">Lists</button>
+        <button type="button" data-group="blocks" aria-pressed="false">Blocks</button>
+      </div>
+    </div>
     <label class="field grow">
       <span>Area</span>
       <input id="area" list="area-list" placeholder="Whole country — type a locality…" autocomplete="off" dir="auto">
@@ -29,7 +36,7 @@
     <fieldset class="toggles">
       <legend>Show</legend>
       <label><input type="checkbox" id="show-abstain" checked> Didn't vote</label>
-      <label><input type="checkbox" id="show-roll" checked> New voters &amp; leavers</label>
+      <label><input type="checkbox" id="show-roll" checked> New voters</label>
       <label><input type="checkbox" id="show-minor" checked> Invalid &amp; other lists</label>
     </fieldset>
   </section>
@@ -40,17 +47,27 @@
         <h2 id="chart-title">Whole country</h2>
         <p id="chart-sub" class="muted"></p>
       </div>
-      <p class="hint muted">Hover a list to see where its voters went; click to pin it. Width = number of people.</p>
+      <p class="hint muted">Hover a list to see where its voters went; click to pin it. Width = number of people. <span id="flow-note"></span></p>
       <div class="chart-scroll">
         <svg id="sankey" role="img" aria-labelledby="chart-title"></svg>
       </div>
+      <p id="block-legend" class="small block-legend" hidden></p>
       <p id="model-desc" class="muted small"></p>
+    </section>
+
+    <section class="card" id="cross-card" hidden>
+      <div class="card-head">
+        <h2>Cross-block moves</h2>
+        <p class="muted small">Which lists make up each move between blocks</p>
+      </div>
+      <p id="cross-caption" class="muted small"></p>
+      <div id="cross" class="cross-grid"></div>
     </section>
 
     <section class="card">
       <div class="card-head">
         <h2>Transfer table</h2>
-        <div class="seg" role="radiogroup" aria-label="Table values">
+        <div class="seg" id="table-mode" role="radiogroup" aria-label="Table values">
           <button type="button" data-mode="row" aria-pressed="true">% of 2022 list</button>
           <button type="button" data-mode="col" aria-pressed="false">% of 2026 list</button>
           <button type="button" data-mode="abs" aria-pressed="false">People</button>
@@ -65,7 +82,7 @@
     <section class="card prose" id="method">
       <h2>How this is estimated</h2>
       <p>Votes are secret, so nobody knows how any individual moved. What is known is each ballot box's result in both elections. Boxes are grouped into <strong>clusters</strong> that cover the same voters in 2022 and 2026: polling places (the CEC's “ריכוז”) matched by their id, then by shared box numbers; places that can't be matched are pooled per locality, or per regional committee. Double-envelope ballots (soldiers, diplomats, hospitals, prisons) form one cluster of their own.</p>
-      <p>Each cluster is a closed population. On the 2022 side everyone either voted for a list, cast an invalid ballot, didn't vote, or <em>wasn't yet on the roll</em> (turned 18 or immigrated since). On the 2026 side the same people voted, didn't vote, or <em>left the roll</em> (mostly deceased). Lists under 0.2% of the national vote are grouped as “Other”.</p>
+      <p>Only the vote files are used. Each cluster is treated as one population: in 2022 everyone voted for a list, cast an invalid ballot, or didn't vote; in 2026 the same. The files give each cluster's registered voters in both years, so only the net change is known (turned 18 or arrived, minus died or left). Where a cluster grew, the growth appears as <em>new voters (net)</em> on the 2022 side; where it shrank, the difference is removed evenly from its 2022 groups. People who died are therefore treated as replaced by new voters. Lists under 0.2% of the national vote are grouped as “Other”.</p>
       <p>A model then finds flows that reproduce every cluster's results in both elections at once. The models differ in what they assume about voters inside a cluster:</p>
       <ul id="model-list"></ul>
       <h3>Does it recover known flows?</h3>
@@ -75,9 +92,9 @@
       <h3>Caveats</h3>
       <ul>
         <li>This is ecological inference: aggregate results can't pin down individual moves, so every number here rests on the model's assumptions. Treat flows under a few thousand people as noise.</li>
-        <li>People who moved home between elections appear as “left the roll” in one cluster and “new voters” in another.</li>
+        <li>Deaths aren't modelled: about 3% of 2022 voters died before 2026, and their places are taken by new voters (shown net). This can shift a list's row by a few points.</li>
+        <li>People who moved home between elections are lost from one cluster and counted as new voters in another.</li>
         <li>Double-envelope voters are a different population in each election (most 2022 soldiers have been discharged). They also stay on their home box's roll, so their numbers are removed from home-box abstainers, in proportion to registered voters.</li>
-        <li>New voters vs. leavers is split with a national death rate (3.1% over four years); only their difference is observed.</li>
       </ul>
       <h3>Data</h3>
       <ul id="sources"></ul>
@@ -88,6 +105,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12.3/dist/d3-sankey.min.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>
