@@ -98,6 +98,10 @@ sent to the wrong 2026 destination, averaged over lists — lower is better.
 - The split VAE matches the constant matrix where transfers don't vary and
   roughly halves its error where they do.
 
+**Why the Netanyahu bloc fell from 64 to 53 seats:** a seat-by-seat cause
+analysis using both models is in
+[`docs/bloc-decline-64-to-53.md`](docs/bloc-decline-64-to-53.md).
+
 ## Viewer (`web/`)
 
 Static page (D3 + d3-sankey) reading `web/data/results.json` and
@@ -134,6 +138,9 @@ src/elections_transfer/
   synthetic.py   planted-flow recovery regimes and scores
   export.py      JSON for the web UI
   cli.py         `elections-transfer` command (download, synth, fit, export, all, serve)
+  seats.py       threshold + D'Hondt seat allocation
+  analysis.py    bloc seat-change decomposition; turnout by area
+docs/            written analyses
 web/             static viewer
 tests/           recovery tests
 ```
