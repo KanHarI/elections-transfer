@@ -363,8 +363,8 @@
     const S = R.summary;
     const env26 = S.envelope_voters["2026"];
     $("#status").textContent = R.sources["26"].fetched_at
-      ? `2026 data fetched ${R.sources["26"].fetched_at.replace("T", " ").replace("+00:00", " UTC")}. ` +
-        `Results are preliminary until the CEC publishes final results; ${fmtFull(env26)} double-envelope ballots were counted at that point.`
+      ? `2026: final CEC results, including all ${fmtFull(env26)} double-envelope ballots ` +
+        `(fetched ${R.sources["26"].fetched_at.slice(0, 10)}).`
       : "";
 
     $("#model-list").innerHTML = R.models.map((m) => `<li><strong>${m.label}.</strong> ${m.description}</li>`).join("");

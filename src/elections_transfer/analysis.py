@@ -10,6 +10,10 @@ of the two elections:
 Each flow is assigned to exactly one cause, so the causes add up to the
 vote-driven change (120·C26/P26 − 120·C22/P22). What is left is seat arithmetic:
 rounding in the D'Hondt allocation, surplus-vote agreements and the final count.
+
+The same formula with C restricted to one half of the bloc (Charedi lists, or
+Likud/RZ/Otzma) splits every effect between the two halves; the halves add up
+to the bloc.
 """
 
 import pickle
@@ -23,6 +27,7 @@ from .export import RESULTS
 
 COAL22, COAL26 = {"מחל", "ט", "שס", "ג"}, {"מחל", "ב", "ט", "שס", "ג"}
 CHAREDI = {"שס", "ג"}
+NONCHAREDI22, NONCHAREDI26 = COAL22 - CHAREDI, COAL26 - CHAREDI  # Likud, RZ (+ Otzma in 2026)
 CHANGE22, CHANGE26 = {"פה", "כן", "ל", "אמת"}, {"דרך", "רק", "אמת", "ל"}
 ARAB22, ARAB26 = {"עם", "ום"}, {"ודם", "עם"}
 MERETZ, BALAD, JEWISH_HOME = "מרצ", "ד", "ב"
@@ -33,6 +38,10 @@ def _group(i: str, j: str) -> str:
     """Cause for a flow from 2022 category i to 2026 category j (ballot letters or specials)."""
     voted22 = i not in ("ABSTAIN", "NEW", "INVALID")
     if i in COAL22:
+        if i in CHAREDI and j in NONCHAREDI26:
+            return "Charedi lists → Likud/Otzma/RZ"
+        if i in NONCHAREDI22 and j in CHAREDI:
+            return "Likud/RZ → Charedi lists"
         if j in COAL26:
             return "Moves inside the Bibi bloc"
         if j in CHANGE26:
@@ -83,30 +92,44 @@ def decompose(ds: Dataset, flows: np.ndarray) -> pd.DataFrame:
     def votes_of(letters):
         return float(votes22[list(letters)].sum())
 
-    pass22 = COAL22 | CHANGE22 | ARAB22
-    c22, p22 = votes_of(COAL22), votes_of(pass22)
+    pass22, pass26 = COAL22 | CHANGE22 | ARAB22, COAL26 | CHANGE26 | ARAB26
     col = flows.sum(0)
-    c26 = sum(col[j] for j, c in enumerate(cats26) if c in COAL26)
-    p26 = sum(col[j] for j, c in enumerate(cats26) if c in COAL26 | CHANGE26 | ARAB26)
-    c_mid, p_mid = (c22 + c26) / 2, (p22 + p26) / 2
 
-    def effect(amount, dc, dp):
-        return 120 * amount * (dc / p_mid - c_mid * dp / p_mid**2)
+    def votes26_of(letters):
+        return float(sum(col[j] for j, c in enumerate(cats26) if c in letters))
+
+    p22, p26 = votes_of(pass22), votes26_of(pass26)
+    p_mid = (p22 + p26) / 2
+    halves = {  # name: (2022 lists, 2026 lists)
+        "charedi": (CHAREDI, CHAREDI),
+        "noncharedi": (NONCHAREDI22, NONCHAREDI26),
+    }
+    mids = {h: (votes_of(l22) + votes26_of(l26)) / 2 for h, (l22, l26) in halves.items()}
+
+    def effects(amount, i, j, removed=False):
+        dp = (0 if removed else (j in pass26)) - (i in pass22)
+        return {f"seats_{h}": 120 * amount * (((0 if removed else (j in l26)) - (i in l22)) / p_mid
+                                               - mids[h] * dp / p_mid**2)
+                for h, (l22, l26) in halves.items()}
 
     rows = []
     for a, i in enumerate(cats22):
         for b, j in enumerate(cats26):
-            dc = (j in COAL26) - (i in COAL22)
-            dp = (j in COAL26 | CHANGE26 | ARAB26) - (i in pass22)
             rows.append({"cause": _group(i, j), "from": i, "to": j, "people": flows[a, b],
-                         "seats": effect(flows[a, b], dc, dp)})
+                         **effects(flows[a, b], i, j)})
         if i in parties22:  # people removed from shrinking clusters (moved away / died)
             removed = float(votes22[i]) - flows[a].sum()
             rows.append({"cause": "Population turnover in shrinking areas", "from": i, "to": "removed",
-                         "people": removed, "seats": effect(removed, -(i in COAL22), -(i in pass22))})
+                         "people": removed, **effects(removed, i, None, removed=True)})
     df = pd.DataFrame(rows)
-    df.attrs.update(c22=c22, p22=p22, c26=c26, p26=p26,
-                    vote_driven=120 * c26 / p26 - 120 * c22 / p22)
+    df["seats"] = df.seats_charedi + df.seats_noncharedi
+    c22, c26 = votes_of(COAL22), votes26_of(COAL26)
+    df.attrs.update(
+        c22=c22, p22=p22, c26=c26, p26=p26, p_mid=p_mid, mids=mids,
+        vote_driven=120 * c26 / p26 - 120 * c22 / p22,
+        vote_driven_charedi=120 * votes26_of(CHAREDI) / p26 - 120 * votes_of(CHAREDI) / p22,
+        vote_driven_noncharedi=120 * votes26_of(NONCHAREDI26) / p26 - 120 * votes_of(NONCHAREDI22) / p22,
+    )
     return df
 
 
@@ -131,8 +154,10 @@ ROWS = {
         "Burned: Bibi-bloc voters → Reservists", "Burned: Bibi-bloc voters → Amcha Yisrael",
         "Burned: Bibi-bloc voters → other small lists"],
     "Bibi bloc ↔ Change bloc switching (net)": ["Bibi bloc → Change bloc", "Change bloc → Bibi bloc"],
+    "Charedi lists → Likud/Otzma/RZ (net)": ["Charedi lists → Likud/Otzma/RZ", "Likud/RZ → Charedi lists"],
     "2022 non-voters, excluding Arab lists": ["2022 non-voters → Bibi bloc", "2022 non-voters → Change bloc"],
     "New voters (net), excluding Arab lists": ["New voters → Bibi bloc", "New voters → Change bloc"],
+    "Charedi turnout below other Jewish areas": [],  # filled by charedi_turnout_gap()
     "Change-bloc votes burned (Reservists, Amcha, small lists)": [
         "Burned: Change-bloc voters → Reservists/Amcha/small lists"],
     "Jewish Home (burned in 2022) voters returning": ["Jewish Home (burned in 2022) voters return"],
@@ -141,27 +166,63 @@ ROWS = {
     "Other (population churn, small lists, invalid)": [
         "Other", "Population turnover in shrinking areas", "Other switching", "Moves inside the Bibi bloc"],
 }
+MOBILISATION_ROWS = ("2022 non-voters, excluding Arab lists", "New voters (net), excluding Arab lists")
+SEAT_COLUMNS = ("seats_charedi", "seats_noncharedi", "seats")
 
 
-def summary() -> pd.DataFrame:
-    """Seats per report row for the VAE and the constant matrix, plus each cause's seats."""
-    res = report()
-    out = []
-    for row, causes in ROWS.items():
-        rec = {"row": row}
-        for key, df in res.items():
+def charedi_turnout_gap(attrs: dict, min_share: float = 0.6) -> dict:
+    """Votes not cast because turnout in Charedi-majority polling places rose less
+    than in other Jewish ones (neither Charedi- nor Arab-majority), valued at how
+    Charedi-majority places actually voted in 2026. Model-free."""
+    t = _clusters_by_camp(min_share)
+    ch = t[t.camp == "Charedi (Shas + UTJ)"]
+    other = t[~t.camp.isin(["Charedi (Shas + UTJ)", "Arab (Ra'am + Hadash–Ta'al + Balad)"])]
+    rise = lambda d: d.v26.sum() / d.bzb26.sum() - d.v22.sum() / d.bzb22.sum()
+    missing = ch.bzb26.sum() * (ch.v22.sum() / ch.bzb22.sum() + rise(other)) - ch.v26.sum()
+    valid = missing * ch.valid26.sum() / ch.v26.sum()
+    share = {k: ch[f"votes26_{k}"].sum() / ch.valid26.sum() for k in ("charedi", "noncharedi", "passing")}
+    p_mid, mids = attrs["p_mid"], attrs["mids"]
+    seats = {f"seats_{h}": 120 * valid * (share[h] / p_mid - mids[h] * share["passing"] / p_mid**2)
+             for h in ("charedi", "noncharedi")}
+    seats["seats"] = seats["seats_charedi"] + seats["seats_noncharedi"]
+    return {"missing_voters": missing, "rise_charedi": rise(ch), "rise_other": rise(other), "shares": share, **seats}
+
+
+def summary() -> dict[str, pd.DataFrame]:
+    """Per model: seats per report row, split into Charedi lists and Likud/Otzma/RZ.
+
+    The mobilisation rows are counted as if Charedi-majority areas' turnout had
+    risen like other Jewish areas'; the Charedi-turnout row is the difference, so
+    the rows still add up to the actual change."""
+    out = {}
+    for key, df in report().items():
+        gap = charedi_turnout_gap(df.attrs)
+        rows = []
+        for row, causes in ROWS.items():
             sub = df[df.cause.isin(causes)]
-            rec[f"{key}_seats"] = sub.seats.sum()
-            rec[f"{key}_people"] = sub[sub.seats != 0].people.sum()
-        out.append(rec)
-    table = pd.DataFrame(out).set_index("row")
-    table.attrs = res["vae"].attrs
-    return table
+            rec = {"row": row, "people": sub[sub.seats.abs() > 1e-9].people.sum()}
+            rec.update({c: sub[c].sum() for c in SEAT_COLUMNS})
+            rows.append(rec)
+        table = pd.DataFrame(rows).set_index("row")
+        # Move the missing Charedi votes out of the mobilisation rows, in proportion
+        # to how many new / returning voters each row sent to the Charedi lists.
+        intake = df[df["from"].isin(["ABSTAIN", "NEW"]) & df["to"].isin(CHAREDI)].groupby("from").people.sum()
+        weights = {MOBILISATION_ROWS[0]: intake.get("ABSTAIN", 0), MOBILISATION_ROWS[1]: intake.get("NEW", 0)}
+        total = sum(weights.values())
+        for row, w in weights.items():
+            for c in SEAT_COLUMNS:
+                table.loc[row, c] += gap[c] * w / total
+        for c in SEAT_COLUMNS:
+            table.loc["Charedi turnout below other Jewish areas", c] = -gap[c]
+        table.loc["Charedi turnout below other Jewish areas", "people"] = -gap["missing_voters"]
+        table.attrs = {**df.attrs, "gap": gap}
+        out[key] = table
+    return out
 
 
-def turnout_by_area(min_share: float = 0.6) -> pd.DataFrame:
-    """Model-free: turnout at regular ballot boxes (double envelopes excluded) by the
-    cluster's dominant 2022 camp."""
+def _clusters_by_camp(min_share: float = 0.6) -> pd.DataFrame:
+    """Per cluster: registered voters, voters and 2026 votes by bloc half, plus the
+    camp holding a `min_share` majority of its 2022 valid votes (regular boxes only)."""
     from . import clusters
 
     b22, _ = data.load(25)
@@ -169,8 +230,14 @@ def turnout_by_area(min_share: float = 0.6) -> pd.DataFrame:
     reg22, reg26 = b22[~b22.envelope].copy(), b26[~b26.envelope].copy()
     reg22["cluster"], reg26["cluster"], _ = clusters.build(reg22, reg26)
     g22, g26 = reg22.groupby("cluster"), reg26.groupby("cluster")
-    t = pd.DataFrame({"bzb22": g22.bzb.sum(), "v22": g22.voters.sum(), "valid22": g22.valid.sum(),
-                      "bzb26": g26.bzb.sum(), "v26": g26.voters.sum()}).dropna()
+    pass26 = [c for c in COAL26 | CHANGE26 | ARAB26]
+    t = pd.DataFrame({
+        "bzb22": g22.bzb.sum(), "v22": g22.voters.sum(), "valid22": g22.valid.sum(),
+        "bzb26": g26.bzb.sum(), "v26": g26.voters.sum(), "valid26": g26.valid.sum(),
+        "votes26_charedi": g26[list(CHAREDI)].sum().sum(axis=1),
+        "votes26_noncharedi": g26[list(NONCHAREDI26)].sum().sum(axis=1),
+        "votes26_passing": g26[pass26].sum().sum(axis=1),
+    }).dropna()
     camps = {
         "Charedi (Shas + UTJ)": ["שס", "ג"],
         "Arab (Ra'am + Hadash–Ta'al + Balad)": ["עם", "ום", "ד"],
@@ -181,6 +248,28 @@ def turnout_by_area(min_share: float = 0.6) -> pd.DataFrame:
     for name, letters in camps.items():
         share = g22[letters].sum().sum(axis=1).reindex(t.index) / t.valid22
         t.loc[share >= min_share, "camp"] = name
+    return t
+
+
+def official_seats() -> dict:
+    """Seats per election from the vote files: threshold, D'Hondt and surplus
+    agreements (reproduces the official 64 and 53)."""
+    from . import seats
+
+    out = {}
+    for k in (25, 26):
+        df, parties = data.load(k)
+        s = seats.allocate(df[parties].sum().to_dict(), seats.AGREEMENTS[k])
+        coal = COAL22 if k == 25 else COAL26
+        out[k] = {"bloc": sum(s.get(p, 0) for p in coal), "charedi": sum(s.get(p, 0) for p in CHAREDI),
+                  "noncharedi": sum(s.get(p, 0) for p in coal - CHAREDI)}
+    return out
+
+
+def turnout_by_area(min_share: float = 0.6) -> pd.DataFrame:
+    """Model-free: turnout at regular ballot boxes (double envelopes excluded) by the
+    cluster's dominant 2022 camp."""
+    t = _clusters_by_camp(min_share)
     agg = t.groupby("camp")[["bzb22", "v22", "bzb26", "v26"]].sum()
     agg.loc["All regular boxes"] = t[["bzb22", "v22", "bzb26", "v26"]].sum()
     agg["turnout22"], agg["turnout26"] = agg.v22 / agg.bzb22, agg.v26 / agg.bzb26
@@ -190,12 +279,15 @@ def turnout_by_area(min_share: float = 0.6) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    pd.set_option("display.width", 200)
-    s = summary()
-    a = s.attrs
-    print(f"vote-driven change {a['vote_driven']:.2f} seats (120·C/P: {120 * a['c22'] / a['p22']:.2f} → "
-          f"{120 * a['c26'] / a['p26']:.2f})")
-    s["mean_seats"] = s[["vae_seats", "constant_seats"]].mean(axis=1)
-    print(s.round(2).to_string())
-    print("totals:", s[["vae_seats", "constant_seats", "mean_seats"]].sum().round(2).to_dict())
+    pd.set_option("display.width", 220)
+    for key, table in summary().items():
+        a = table.attrs
+        print(f"== {key}: vote-driven {a['vote_driven']:.2f} (Charedi {a['vote_driven_charedi']:.2f}, "
+              f"Likud/Otzma/RZ {a['vote_driven_noncharedi']:.2f})")
+        print(table.round(2).to_string())
+        print("   totals:", table[list(SEAT_COLUMNS)].sum().round(2).to_dict())
+        gap = a["gap"]
+        print(f"   Charedi turnout gap: rise {gap['rise_charedi']:.3f} vs other Jewish {gap['rise_other']:.3f}; "
+              f"missing voters {gap['missing_voters']:,.0f}; 2026 shares {({k: round(v, 3) for k, v in gap['shares'].items()})}")
     print(turnout_by_area().round(3).to_string())
+    print("official seats:", official_seats())

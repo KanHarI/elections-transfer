@@ -51,7 +51,8 @@ def raw_path(knesset: int) -> Path:
 
 def download(knesset: int) -> dict:
     src = SOURCES[knesset]
-    resp = requests.get(src["url"], timeout=60, headers={"User-Agent": "elections-transfer"})
+    # The CEC server answers 404 to non-browser user agents.
+    resp = requests.get(src["url"], timeout=60, headers={"User-Agent": "Mozilla/5.0 (compatible; elections-transfer)"})
     resp.raise_for_status()
     if not resp.content.lstrip(b"\xef\xbb\xbf").startswith("סמל ועדה".encode()):
         raise ValueError(f"K{knesset}: {src['url']} did not return the expected CSV header")

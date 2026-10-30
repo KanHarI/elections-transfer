@@ -5,9 +5,9 @@ election (1 Nov 2022) to the 26th (27 Oct 2026), inferred from ballot-box
 results only, and shown as an interactive Sankey diagram:
 **https://elections-transfer.kanhar.art/**
 
-> **2026 data is preliminary.** The CEC was still counting double-envelope
-> ballots when the data was fetched. Re-run the pipeline once final results are
-> published; the page shows the fetch time.
+2026 data: the CEC's final per-ballot-box results, including all double-envelope
+ballots. With the published surplus-vote agreements, `seats.py` reproduces the
+official seats of both elections (2022: 64 for the Netanyahu bloc; 2026: 53).
 
 ## Quick start
 
@@ -97,6 +97,9 @@ sent to the wrong 2026 destination, averaged over lists — lower is better.
   are mixtures of hidden voter types with their own transfers.
 - The split VAE matches the constant matrix where transfers don't vary and
   roughly halves its error where they do.
+- These synthetic runs used the first 2026 download (before the last ~27k
+  double envelopes were added); the cluster structure they rely on is
+  essentially unchanged.
 
 **Why the Netanyahu bloc fell from 64 to 53 seats:** a seat-by-seat cause
 analysis using both models is in

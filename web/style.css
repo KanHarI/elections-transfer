@@ -75,7 +75,7 @@ h3 { font-size: 15px; margin: 22px 0 6px; }
 .small { font-size: 13px; }
 
 .page-head { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; margin-bottom: 18px; }
-.status { margin: 0; padding: 6px 10px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-ink); font-size: 13px; max-width: 420px; }
+.status { margin: 0; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); color: var(--text-2); font-size: 13px; max-width: 420px; }
 .status:empty { display: none; }
 
 .filters {
