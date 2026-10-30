@@ -66,7 +66,7 @@ body {
   font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans Hebrew", sans-serif;
   padding: 24px 16px 48px;
 }
-main, .page-head, .filters { max-width: 1200px; margin-inline: auto; }
+main, .page-head, .filters, .page-foot { max-width: 1200px; margin-inline: auto; }
 h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; letter-spacing: -.01em; }
 h2 { font-size: 18px; margin: 0; }
 h3 { font-size: 15px; margin: 22px 0 6px; }
@@ -174,3 +174,8 @@ table.plain .best { color: var(--accent); }
 .cross-rows { display: grid; grid-template-columns: 1fr auto auto; gap: 2px 10px; font-size: 13px; }
 .cross-rows .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-2); }
 .cross-rows .num.main { color: var(--text); }
+
+.repo-link { margin: 8px 0 0; font-size: 14px; }
+.repo-link a, .page-foot a { color: var(--accent); text-decoration: none; }
+.repo-link a:hover, .page-foot a:hover { text-decoration: underline; }
+.page-foot { padding: 8px 0 0; font-size: 13px; color: var(--text-2); }

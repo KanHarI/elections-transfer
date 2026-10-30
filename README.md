@@ -2,7 +2,8 @@
 
 Estimated voter transfers between Israeli Knesset lists, from the 25th Knesset
 election (1 Nov 2022) to the 26th (27 Oct 2026), inferred from ballot-box
-results only, and shown as an interactive Sankey diagram.
+results only, and shown as an interactive Sankey diagram:
+**https://elections-transfer.kanhar.art/**
 
 > **2026 data is preliminary.** The CEC was still counting double-envelope
 > ballots when the data was fetched. Re-run the pipeline once final results are
